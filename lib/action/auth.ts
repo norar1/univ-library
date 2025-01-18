@@ -1,29 +1,26 @@
-"use server";
+'use server';
 
-import { eq } from "drizzle-orm";
+import { signIn } from "@/auth";
 import { db } from "@/database/dizzle";
 import { users } from "@/database/schema";
 import { hash } from "bcryptjs";
-import { signIn } from "@/auth";
+import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import ratelimit from "@/lib/ratelimit";
+import ratelimit from "../ratelimit";
 import { redirect } from "next/navigation";
-
-import config from "@/lib/config";
+import config from "../config";
 import { workflowclient } from "../workflow";
 
-export const signInWithCredentials = async (
-  params: Pick<AuthCredentials, "email" | "password">,
-) => {
+export const signInWithCredential = async (params: Pick<AuthCredentials, "email" | "password">) => {
   const { email, password } = params;
 
-  const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
+  const ip = (await headers()).get('x-forwarded-for') || '127.0.0.1';
   const { success } = await ratelimit.limit(ip);
 
   if (!success) return redirect("/too-fast");
 
   try {
-    const result = await signIn("credentials", {
+    const result = await signIn('credentials', {
       email,
       password,
       redirect: false,
@@ -35,7 +32,7 @@ export const signInWithCredentials = async (
 
     return { success: true };
   } catch (error) {
-    console.log(error, "Signin error");
+    console.error('Signin error:', error);
     return { success: false, error: "Signin error" };
   }
 };
@@ -43,45 +40,46 @@ export const signInWithCredentials = async (
 export const signUp = async (params: AuthCredentials) => {
   const { fullname, email, universityId, password, universityCard } = params;
 
-  const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
-  const { success } = await ratelimit.limit(ip);
-
-  if (!success) return redirect("/too-fast");
-
-  const existingUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-
-  if (existingUser.length > 0) {
-    return { success: false, error: "User already exists" };
-  }
-
-  const hashedPassword = await hash(password, 10);
-
   try {
-    await db.insert(users).values({
-      fullname,
-      email,
-      universityId,
-      password: hashedPassword,
-      universityCard,
-    });
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
 
-    await workflowclient.trigger({
-      url: `${config.env.prodApiEndpoint}/api/workflows/onboarding`,
-      body: {
-        email,
+    if (existingUser.length > 0) {
+      return { success: false, error: "User already exists" };
+    }
+
+    const hashedPassword = await hash(password, 10);
+
+    try {
+      const insertResult = await db.insert(users).values({
         fullname,
-      },
-    });
+        email,
+        universityId,
+        password: hashedPassword,
+        universityCard,
+      });
 
-    await signInWithCredentials({ email, password });
+      await workflowclient.trigger({
+        url: `${config.env.prodApiEndpoint}/api/workflows/onboarding`,
+        body: { email, fullname },
+      });
 
-    return { success: true };
+      if (insertResult.rowCount === 0) {
+        return { success: false, error: "Failed to register user" };
+      }
+
+      await signInWithCredential({ email, password });
+
+      return { success: true, message: "User registered and signed in successfully" };
+    } catch (error) {
+      console.error('Signup error:', error);
+      return { success: false, error: "Signup error" };
+    }
   } catch (error) {
-    console.log(error, "Signup error");
-    return { success: false, error: "Signup error" };
+    console.error('Database error:', error);
+    return { success: false, error: "Database error" };
   }
 };
