@@ -2,8 +2,6 @@ import config from "@/lib/config";
 import ImageKit from "imagekit";
 import { NextResponse } from "next/server";
 
-
-
 const {
   env: {
     imagekit: { publicKey, privateKey, urlEndpoint },
@@ -17,5 +15,12 @@ const imagekit = new ImageKit({
 });
 
 export async function GET() {
-  return NextResponse.json(imagekit.getAuthenticationParameters());
+  const response = NextResponse.json(imagekit.getAuthenticationParameters());
+  
+  // Add CORS headers
+  response.headers.set('Access-Control-Allow-Origin', 'https://univ-library-v8bi.vercel.app'); // Allow your deployed domain
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'); // Specify allowed methods
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type'); // Specify allowed headers
+  
+  return response;
 }
