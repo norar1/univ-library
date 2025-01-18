@@ -2,8 +2,9 @@
 // pages/sign-in.tsx
 
 import AuthForm from "@/components/AuthForm";
+import { signInWithCredentials } from "@/lib/action/auth";
 import { signInSchema } from "@/lib/validations";
-import { signInWithCredential } from "@/lib/action/auth";
+
 
 const Page = () => {
   return (
@@ -14,7 +15,7 @@ const Page = () => {
         email: "",
         password: "",
       }}
-      onSubmit={signInWithCredential} 
+      onSubmit={signInWithCredentials} 
     />
   );
 };
