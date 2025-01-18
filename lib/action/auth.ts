@@ -8,6 +8,9 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import ratelimit from "../ratelimit";
 import { redirect } from "next/navigation";
+import { workflowclient } from "../workflow";
+import config from "../config";
+
 
 
 export const signInWithCredential = async (params: Pick<AuthCredentials, "email" | "password">) => {
@@ -45,6 +48,14 @@ export const signUp = async (params: AuthCredentials) => {
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
+
+      await workflowclient.trigger({
+        url: `${config.env.prodApiEndpoint}/api/workflows/onboarding`,
+        body:{
+          email,
+          fullname,
+        }
+      })
 
     if (existingUser.length > 0) {
       return { success: false, error: "User already exists" };
