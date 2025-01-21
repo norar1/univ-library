@@ -61,12 +61,6 @@ export const signUp = async (params: AuthCredentials) => {
         password: hashedPassword,
         universityCard,
       });
-
-      await workflowclient.trigger({
-        url: `${config.env.prodApiEndpoint}/api/workflows/onboarding`,
-        body: { email, fullname },
-      });
-
       if (insertResult.rowCount === 0) {
         return { success: false, error: "Failed to register user" };
       }
